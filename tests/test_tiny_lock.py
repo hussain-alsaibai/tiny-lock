@@ -113,9 +113,15 @@ class TestAsyncLock(unittest.TestCase):
         asyncio.run(run())
 
     def test_release_unacquired_raises(self):
-        lock = AsyncLock()
-        with self.assertRaises(RuntimeError):
-            lock.release()
+        # Construct inside the loop: on 3.8/3.9 asyncio.Lock() grabs the
+        # thread's event loop at construction time and raises
+        # "There is no current event loop" when built at module import.
+        async def run():
+            lock = AsyncLock()
+            with self.assertRaises(RuntimeError):
+                lock.release()
+
+        asyncio.run(run())
 
     def test_mutual_exclusion(self):
         async def run():
@@ -228,9 +234,13 @@ class TestSemaphore(unittest.TestCase):
     """Tests for the Semaphore primitive."""
 
     def test_initial_value(self):
-        sem = Semaphore(value=3)
-        stats = sem.get_stats()
-        self.assertEqual(stats["initial"], 3)
+        # Same 3.8/3.9 constraint: build the semaphore inside a running loop.
+        async def run():
+            sem = Semaphore(value=3)
+            stats = sem.get_stats()
+            self.assertEqual(stats["initial"], 3)
+
+        asyncio.run(run())
 
     def test_acquire_release(self):
         async def run():
